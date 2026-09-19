@@ -1,0 +1,89 @@
+# =========================
+# Visual Studio
+# =========================
+
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =========================
+# .NET / Build
+# =========================
+
+bin/
+obj/
+Debug/
+Release/
+
+# =========================
+# NuGet
+# =========================
+
+*.nupkg
+*.snupkg
+.nuget/
+
+# =========================
+# ASP.NET / Configuration
+# =========================
+
+appsettings.json
+appsettings.*.json
+
+# =========================
+# Logs
+# =========================
+
+*.log
+logs/
+
+# =========================
+# Environment / Secrets
+# =========================
+
+.env
+.env.*
+!.env.example
+
+# =========================
+# OS
+# =========================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# =========================
+# JetBrains Rider / ReSharper
+# =========================
+
+.idea/
+*.sln.iml
+_ReSharper*/
+*.[Rr]e[Ss]harper*
+*.DotSettings.user
+
+# =========================
+# VS Code
+# =========================
+
+.vscode/
+
+# =========================
+# Temporary files
+# =========================
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.cache
+
+# =========================
+# Test results
+# =========================
+
+TestResults/
+*.trx

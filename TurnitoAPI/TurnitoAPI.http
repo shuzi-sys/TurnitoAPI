@@ -1,0 +1,6 @@
+@TurnitoAPI_HostAddress = http://localhost:5076
+
+GET {{TurnitoAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

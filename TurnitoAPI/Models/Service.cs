@@ -2,7 +2,7 @@
 {
     public class Service
     {
-        public int id { get; set; }
+        public int Id { get; set; }
         public int CompanyID { get; set; }
         public Company Company { get; set; }
         public string Name { get; set; }

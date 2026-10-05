@@ -4,10 +4,10 @@ using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using TurnitoAPI.Models;
 using TurnitoAPI.Dtos.User;
-
+using TurnitoAPI.Services.Interfaces;
 namespace TurnitoAPI.Services
 {
-    public class tokenService
+    public class tokenService : ItokenService
     {
         private readonly IConfiguration _configuration;
         public tokenService(IConfiguration configuration)
@@ -15,7 +15,7 @@ namespace TurnitoAPI.Services
             _configuration = configuration;
         }
 
-        public Auth_Response_Dto CreateToken(User user) 
+        public Task<Auth_Response_Dto> CreateToken(User user) 
         {
             var expires = DateTime.UtcNow.AddMinutes(_configuration.GetValue<int>("Jwt:ExpiresInMinutes"));
 
@@ -36,13 +36,18 @@ namespace TurnitoAPI.Services
                 signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
             );
 
-            return new Auth_Response_Dto
+            return Task.FromResult(new Auth_Response_Dto
             {
+                user = new User_Dto
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    Mail = user.Mail,
+                    isAdmin = user.isAdmin,
+                },
                 Token = new JwtSecurityTokenHandler().WriteToken(token),
                 ExpiresAt=expires
-            };
+            });
         }
-
-
     }
 }

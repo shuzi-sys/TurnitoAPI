@@ -4,7 +4,7 @@ using TurnitoAPI.Models;
 using TurnitoAPI.Dtos.Company;
 namespace TurnitoAPI.Services
 {
-    public class companyService : IcompanyService
+    public class companyService
     {
         private readonly AppDbContext _context;
         public companyService(AppDbContext context) { this._context = context; }
@@ -25,7 +25,7 @@ namespace TurnitoAPI.Services
         {
             var company = new Company
             {
-                name = companyDto.name
+                Name = companyDto.name
             };
             _context.Empresas.Add(company);
             await _context.SaveChangesAsync();
@@ -40,7 +40,7 @@ namespace TurnitoAPI.Services
             {
                 return null;
             }
-            company.name = companyDto.name;
+            company.Name = companyDto.name;
             await _context.SaveChangesAsync();
             return company;
         }

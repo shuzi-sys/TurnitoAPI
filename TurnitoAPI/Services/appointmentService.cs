@@ -26,7 +26,7 @@ namespace TurnitoAPI.Services
                     CompanyId = a.CompanyId,
                     ServiceId = a.ServiceId,
                     ProviderId = a.ProviderId,
-                    CompanyName = a.Company.name,
+                    CompanyName = a.Company.Name,
                     ServiceName = a.Service.Name,
                     ProviderName = a.Provider.Name,
                     ClientName = a.ClientName,
@@ -57,7 +57,7 @@ namespace TurnitoAPI.Services
                     ServiceId = a.ServiceId,
                     ProviderId = a.ProviderId,
 
-                    CompanyName = a.Company.name,
+                    CompanyName = a.Company.Name,
                     ServiceName = a.Service.Name,
                     ProviderName = a.Provider.Name,
 

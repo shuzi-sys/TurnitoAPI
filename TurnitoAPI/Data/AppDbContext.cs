@@ -9,6 +9,7 @@ namespace TurnitoAPI.Data
         { 
         }
 
+        public DbSet<User> Usuarios { get; set; }
         public DbSet<Company> Empresas { get; set; }
         public DbSet<Appointment> Turnos { get; set; }
         public DbSet<Service> Servicios { get; set; }

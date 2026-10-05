@@ -16,7 +16,7 @@ namespace TurnitoAPI.Services
         public async Task<Get_Provider_Dto> CreateProvider(Create_Provider_Dto dto)
         {
             var serviceIds = dto.ServicesID.Distinct().ToList();
-            var services = await _context.Servicios.Where(s => serviceIds.Contains(s.id) && s.CompanyID == dto.CompanyId)
+            var services = await _context.Servicios.Where(s => serviceIds.Contains(s.Id) && s.CompanyID == dto.CompanyId)
                 .ToListAsync();
 
             if (services.Count != serviceIds.Count)
@@ -40,10 +40,10 @@ namespace TurnitoAPI.Services
                     Id = p.Id,
                     Name = p.Name,
                     CompanyId = p.CompanyId,
-                    CompanyName = p.Company.name,
+                    CompanyName = p.Company.Name,
                     Services = p.Services.Select(s => new Get_Service_Summary_Dto
                     {
-                        Id = s.id,
+                        Id = s.Id,
                         Name = s.Name,
                         Duration = s.DurationMinutes
                     }).ToList()
@@ -59,7 +59,7 @@ namespace TurnitoAPI.Services
             }
             var serviceIds = dto.ServicesID.Distinct().ToList();
             if (serviceIds.Count > 0) {
-            var services = await _context.Servicios.Where(s => serviceIds.Contains(s.id) && s.CompanyID == provider.CompanyId)
+            var services = await _context.Servicios.Where(s => serviceIds.Contains(s.Id) && s.CompanyID == provider.CompanyId)
                 .ToListAsync();
             if (services.Count != serviceIds.Count)
             {
@@ -83,10 +83,10 @@ namespace TurnitoAPI.Services
                     Id = p.Id,
                     Name = p.Name,
                     CompanyId = p.CompanyId,
-                    CompanyName = p.Company.name,
+                    CompanyName = p.Company.Name,
                     Services = p.Services.Select(s => new Get_Service_Summary_Dto
                     {
-                        Id = s.id,
+                        Id = s.Id,
                         Name = s.Name,
                         Duration = s.DurationMinutes
                     }).ToList()
@@ -102,10 +102,10 @@ namespace TurnitoAPI.Services
                     Id = p.Id,
                     Name = p.Name,
                     CompanyId = p.CompanyId,
-                    CompanyName = p.Company.name,
+                    CompanyName = p.Company.Name,
                     Services = p.Services.Select(s => new Get_Service_Summary_Dto
                     {
-                        Id = s.id,
+                        Id = s.Id,
                         Name = s.Name,
                         Duration = s.DurationMinutes
                     }).ToList()
@@ -121,10 +121,10 @@ namespace TurnitoAPI.Services
                     Id = p.Id,
                     Name = p.Name,
                     CompanyId = p.CompanyId,
-                    CompanyName = p.Company.name,
+                    CompanyName = p.Company.Name,
                     Services = p.Services.Select(s => new Get_Service_Summary_Dto
                     {
-                        Id = s.id,
+                        Id = s.Id,
                         Name = s.Name,
                         Duration = s.DurationMinutes
                     }).ToList()

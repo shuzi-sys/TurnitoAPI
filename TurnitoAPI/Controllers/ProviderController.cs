@@ -1,43 +1,103 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using TurnitoAPI.Dtos.Provider;
+using TurnitoAPI.Services.Interfaces;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace TurnitoAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api")]
     [ApiController]
-    public class ValuesController : ControllerBase
+    [Authorize]
+    public class ProviderController : ControllerBase
     {
-        // GET: api/<ValuesController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        private readonly IproviderService _providerService;
+        public ProviderController(IproviderService providerService)
         {
-            return new string[] { "value1", "value2" };
+            _providerService = providerService;
+        }
+
+        [HttpPost("providers")]
+        public async Task<IActionResult> CreateProvider(Create_Provider_Dto providerDto)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var provider = await _providerService.CreateProvider(userId, providerDto);
+            if (provider == null)
+            {
+                return BadRequest();
+            }
+            return Created(string.Empty, provider);
         }
 
         // GET api/<ValuesController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        [HttpPatch("providers/{id:int}")]
+        public async Task<IActionResult> UpdateProvider(int id, Update_Provider_Dto providerDto)
         {
-            return "value";
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var provider = await _providerService.UpdateProvider(userId, id, providerDto);
+            if (provider == null)
+            {
+                return NotFound();
+            }
+            return Ok(provider);
         }
 
-        // POST api/<ValuesController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        [HttpPost("providers/{providerId:int}/services/")]
+        public async Task<IActionResult> AddServiceToProvider(int providerId, Update_Provider_Services_Dto dto)
         {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var provider = await _providerService.AddServiceToProvider(userId, providerId, dto.ServiceIds);
+            if (provider == null)
+            {
+                return NotFound();
+            }
+            return Ok(provider);
         }
 
-        // PUT api/<ValuesController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        [HttpPost("providers/{providerId:int}/services")]
+        public async Task<IActionResult> RemoveServiceFromProvider(int providerId, Update_Provider_Services_Dto dto)
         {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var provider = await _providerService.RemoveServiceFromProvider(userId, providerId, dto.ServiceIds);
+            if (provider == null)
+            {
+                return NotFound();
+            }
+            return Ok(provider);
         }
 
-        // DELETE api/<ValuesController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        [HttpGet("companies/{companyId:int}/providers")]
+        public async Task<IActionResult> GetAllProvidersForCompany(int companyId)
         {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var providers = await _providerService.GetAllProvidersForCompany(userId, companyId);
+            return Ok(providers);
+        }
+
+        [HttpGet("providers/{providerId:int}")]
+        public async Task<IActionResult> GetProviderById(int providerId)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var provider = await _providerService.GetProviderById(userId, providerId);
+            if (provider == null)
+            {
+                return NotFound();
+            }
+            return Ok(provider);
+        }
+
+        [HttpDelete("providers/{id:int}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _providerService.DeleteProvider(userId, id);
+            if (!result)
+            {
+                return NotFound();
+            }
+            return Ok();
         }
     }
 }

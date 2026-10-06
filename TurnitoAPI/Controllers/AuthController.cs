@@ -10,25 +10,31 @@ namespace TurnitoAPI.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IauthService _authService;
+        public AuthController(IauthService authService)
+        {
+            _authService = authService;
+        }
 
-        /*
         [HttpPost("register")]
         public async Task<IActionResult> Register(Create_User_Dto dto)
         {
-
+            var result = await _authService.RegisterAsync(dto);
+            if (result != null)
+            {
+                return Created(string.Empty, result);
+            }
+            return BadRequest();
         }
-        */
-
-        // PUT api/<ValuesController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(Login_User_Dto dto)
         {
-        }
-
-        // DELETE api/<ValuesController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
+            var result = await _authService.LoginAsync(dto);
+            if (result != null)
+            {
+                return Ok(result);
+            }
+            return Unauthorized("Credenciales invalidas.");
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Text;
 using TurnitoAPI.Data;
 using TurnitoAPI.Services;
 using TurnitoAPI.Services.Interfaces;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +34,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddScoped<IauthService, authService>();
 builder.Services.AddScoped<ItokenService, tokenService>();
+builder.Services.AddScoped<IcompanyService, companyService>();
 
 var app = builder.Build();
 
@@ -40,6 +42,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();

@@ -2,9 +2,10 @@
 using TurnitoAPI.Data;
 using TurnitoAPI.Models;
 using TurnitoAPI.Dtos.Service;
+using TurnitoAPI.Services.Interfaces;
 namespace TurnitoAPI.Services
 {
-    public class serviceService
+    public class serviceService : IserviceService
     {
         private readonly AppDbContext _context;
         public serviceService(AppDbContext context)
@@ -12,7 +13,16 @@ namespace TurnitoAPI.Services
             _context = context;
         }
 
-        public async Task<Get_Service_Dto> CreateServiceAsync(Create_Service_Dto dto) {
+        public async Task<Get_Service_Dto> CreateServiceAsync(int userId, Create_Service_Dto dto) {
+            var user = await _context.Usuarios.FindAsync(userId);
+            if (user == null)
+            {
+                throw new Exception("User not found");
+            }
+            if (user.AvailableServices <= 0)
+            {
+                throw new Exception("User has no available services left");
+            }
             var service = new Service
             {
                 Name = dto.Name,
@@ -20,6 +30,7 @@ namespace TurnitoAPI.Services
                 CompanyID = dto.CompanyID
             };
             _context.Servicios.Add(service);
+            user.AvailableServices--;
             await _context.SaveChangesAsync();
             return new Get_Service_Dto
             {
@@ -30,30 +41,40 @@ namespace TurnitoAPI.Services
             };
         }
 
-        public async Task<IEnumerable<Get_Service_Dto>> GetServicesByCompanyIdAsync(int id)
+        public async Task<IEnumerable<Get_Service_Dto>> GetServicesByCompanyIdAsync(int userId, int id)
         {
-            var services = await _context.Servicios.Where(s => s.CompanyID == id).ToListAsync();
-            return services.Select(s => new Get_Service_Dto
+            var ownsCompany = await _context.Empresas.AnyAsync(c => c.Id == id && c.UserId == userId);
+            if (!ownsCompany)
             {
-                Id = s.Id,
-                Name = s.Name,
-                DurationMinutes = s.DurationMinutes,
-                CompanyID = s.CompanyID
-            });
+                return null; 
+            }
+            var services = await _context.Servicios
+        .AsNoTracking()
+        .Where(s => s.CompanyID == id)
+        .Select(s => new Get_Service_Dto
+        {
+            Id = s.Id,
+            Name = s.Name,
+            DurationMinutes = s.DurationMinutes,
+            CompanyID = s.CompanyID,
+            CompanyName = s.Company.Name
+        })
+        .ToListAsync();
+            return services;
         }
 
-        public async Task<bool> DeleteServiceById(int selfcompanyId, int serviceId)
+        public async Task<bool> DeleteServiceById(int userId, int serviceId)
         {
-            var service = await _context.Servicios.FindAsync(serviceId);
+            var service = await _context.Servicios
+                .FirstOrDefaultAsync(s=> s.Id == serviceId
+                                    && s.Company.UserId == userId);
             if (service == null)
             {
                 return false;
             }
-            if (service.CompanyID != selfcompanyId)
-            {
-                return false;
-            }
             _context.Servicios.Remove(service);
+            var user = await _context.Usuarios.FindAsync(userId);
+            user!.AvailableServices++; // <- i bypass the boolean because it's guaranteed to exist by service query
             await _context.SaveChangesAsync();
             return true;
         }

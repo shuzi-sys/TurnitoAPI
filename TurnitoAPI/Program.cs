@@ -35,6 +35,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddScoped<IauthService, authService>();
 builder.Services.AddScoped<ItokenService, tokenService>();
 builder.Services.AddScoped<IcompanyService, companyService>();
+builder.Services.AddScoped<IappointmentService, appointmentService>();
+builder.Services.AddScoped<IserviceService, serviceService>();
+builder.Services.AddScoped<ItokenService, tokenService>();
 
 var app = builder.Build();
 

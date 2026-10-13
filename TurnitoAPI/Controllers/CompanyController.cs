@@ -1,10 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TurnitoAPI.Dtos.Company;
 using TurnitoAPI.Models;
-using TurnitoAPI.Services.Interfaces;
 using TurnitoAPI.Services.Interfaces;
 
 namespace TurnitoAPI.Controllers

@@ -2,10 +2,11 @@
 using TurnitoAPI.Models;
 using TurnitoAPI.Dtos.Provider;
 using TurnitoAPI.Dtos.Service;
+using TurnitoAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 namespace TurnitoAPI.Services
 {
-    public class providerService
+    public class providerService : IproviderService
     {
         private readonly AppDbContext _context;
         public providerService(AppDbContext context)

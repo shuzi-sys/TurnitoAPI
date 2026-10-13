@@ -31,7 +31,6 @@ namespace TurnitoAPI.Controllers
             return Created(string.Empty, provider);
         }
 
-        // GET api/<ValuesController>/5
         [HttpPatch("providers/{id:int}")]
         public async Task<IActionResult> UpdateProvider(int id, Update_Provider_Dto providerDto)
         {
@@ -56,7 +55,7 @@ namespace TurnitoAPI.Controllers
             return Ok(provider);
         }
 
-        [HttpPost("providers/{providerId:int}/services")]
+        [HttpDelete("providers/{providerId:int}/services")]
         public async Task<IActionResult> RemoveServiceFromProvider(int providerId, Update_Provider_Services_Dto dto)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

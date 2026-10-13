@@ -46,6 +46,7 @@ namespace TurnitoAPI.Services
             }
             var company = new Company
             {
+                UserId = userId,
                 Name = companyDto.name
             };
             _context.Empresas.Add(company);

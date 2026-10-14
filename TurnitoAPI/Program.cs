@@ -6,6 +6,7 @@ using System.Text;
 using TurnitoAPI.Data;
 using TurnitoAPI.Services;
 using TurnitoAPI.Services.Interfaces;
+using TurnitoAPI.Exceptions;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,6 +40,7 @@ builder.Services.AddScoped<IappointmentService, appointmentService>();
 builder.Services.AddScoped<IserviceService, serviceService>();
 builder.Services.AddScoped<IproviderService, providerService>();
 builder.Services.AddScoped<ItokenService, tokenService>();
+builder.Services.AddExceptionHandler<APIExceptionHandler>();
 
 var app = builder.Build();
 
@@ -50,7 +52,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 

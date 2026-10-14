@@ -17,27 +17,18 @@ namespace TurnitoAPI.Services
             _token = token;
         }
 
-        public async Task<bool> IsUsernameTaken(string username)
-        {
-            return await _context.Usuarios.AnyAsync(u => u.Username == username);
-        }
-
-        public async Task<bool> IsEmailTaken(string email)
-        {
-            return await _context.Usuarios.AnyAsync(u => u.Mail == email);
-        }
+       
 
         public async Task<Auth_Response_Dto> RegisterAsync(Create_User_Dto dto)
         {
-            if (IsUsernameTaken(dto.Username).Result)
+            var mail = dto.Email.Trim().ToLowerInvariant();
+            var username = dto.Username.Trim();
+            var taken = await _context.Usuarios
+                .AnyAsync(u => u.Username == dto.Username || u.Mail == mail);
+            if (taken) 
             {
-                throw new Exception("Username is already taken.");
+                throw new ConflictException("Username or email already in use");
             }
-            if (IsEmailTaken(dto.Email).Result)
-            {
-                throw new Exception("Email is already taken.");
-            }
-
             // Continue with user registration logic
             var user = new User
             {

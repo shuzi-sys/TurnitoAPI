@@ -23,7 +23,8 @@ namespace TurnitoAPI.Services
             {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Mail)
+            new Claim(ClaimTypes.Email, user.Mail),
+            new Claim(ClaimTypes.Role, user.isAdmin ? "Admin" : "User")
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));

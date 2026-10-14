@@ -45,7 +45,8 @@ namespace TurnitoAPI.Controllers
         [HttpPost("appointment")]
         public async Task<IActionResult> CreateAppointment(Create_Appointment_Dto appointmentDto)
         {
-            var appointment = await _appointmentService.CreateAppointment(appointmentDto);
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var appointment = await _appointmentService.CreateAppointment(userId, appointmentDto);
             if (appointment == null)
             {
                 return BadRequest();

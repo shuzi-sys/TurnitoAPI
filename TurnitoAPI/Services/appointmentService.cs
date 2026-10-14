@@ -117,26 +117,39 @@ namespace TurnitoAPI.Services
             }
             if (appointment.ServiceId != null)
             {
-                var service = await _context.Servicios.FindAsync(appointment.ServiceId);
-                if (service != null && service.Company.UserId == userId)
+                var serviceBelongsToCompany  = await _context.Servicios.AnyAsync(s =>
+                s.Id == appointment.ServiceId.Value && 
+                s.CompanyID == existingAppointment.CompanyId);
+                if (!serviceBelongsToCompany)
                 {
-                    existingAppointment.ServiceId = appointment.ServiceId.Value;
+                    throw new Exception("Service is not owned by such company.");
                 }
-                else { throw new Exception("You dont own such service"); }
+                existingAppointment.ServiceId = appointment.ServiceId.Value;
             }
             if (appointment.ProviderId != null)
             {
-                var provider = await _context.Prestadores.FindAsync(appointment.ProviderId);
-                if (provider != null && provider.Company.UserId == userId)
-                {
-                    existingAppointment.ProviderId = appointment.ProviderId.Value;
-                }
-                else
-                {
-                    throw new Exception("You dont own such provider");
-                }
-                }
+                var providerBelongsToCompany = await _context.Prestadores.AnyAsync(p =>
+                    p.Id == appointment.ProviderId.Value &&
+                    p.CompanyId == existingAppointment.CompanyId);
 
+                if (!providerBelongsToCompany)
+                {
+                    throw new Exception("Provider doesnt belong to such company.");
+                }
+                existingAppointment.ProviderId = appointment.ProviderId.Value;
+            }
+
+            var finalServiceId = appointment.ServiceId ?? existingAppointment.ServiceId;
+            var finalProviderId = appointment.ProviderId ?? existingAppointment.ProviderId;
+
+            var providerOffersService = await _context.Prestadores.AnyAsync(p =>
+                p.Id == finalProviderId &&
+                p.Services.Any(s => s.Id == finalServiceId));
+
+            if (!providerOffersService)
+            {
+                throw new Exception("The selected provider doesnt offer such service");
+            }
             await _context.SaveChangesAsync();
             var updatedAppointment = await _context.Turnos.Where(a => a.Id == existingAppointment.Id)
                 .Select(a => new Get_Appointment_Dto

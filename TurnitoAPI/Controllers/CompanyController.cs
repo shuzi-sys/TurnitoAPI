@@ -17,12 +17,12 @@ namespace TurnitoAPI.Controllers
             _companyService = companyService;
         }
         // proteger a adm
-        [Authorize]
+        [Authorize(Roles="Admin")]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllCompanies()
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var companies = await _companyService.GetAllCompanies();
+            var companies = await _companyService.GetAllCompanies(userId);
             return Ok(companies);
         }
         // proteger a due;o
@@ -53,7 +53,7 @@ namespace TurnitoAPI.Controllers
         }
 
         [Authorize]
-        [HttpPost("{id}")]
+        [HttpPatch("{id}")]
         public async Task<IActionResult> UpdateCompany(int id, Update_Company_Dto companyDto)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

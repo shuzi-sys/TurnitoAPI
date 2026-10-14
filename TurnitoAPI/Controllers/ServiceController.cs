@@ -14,24 +14,10 @@ namespace TurnitoAPI.Controllers
     [Authorize]
     public class ServiceController : ControllerBase
     {
-        private readonly AppDbContext _context;
         private readonly IserviceService _serviceService;
-        public ServiceController(AppDbContext context, IserviceService serviceService)
+        public ServiceController( IserviceService serviceService)
         {
-            _context = context;
             _serviceService = serviceService;
-        }
-        [HttpGet]
-        public IEnumerable<string> Get()
-        {
-            return new string[] { "value1", "value2" };
-        }
-
-        // GET api/<ServiceController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
-        {
-            return "value";
         }
 
         // POST api/<ServiceController>
@@ -73,7 +59,3 @@ namespace TurnitoAPI.Controllers
         }
     }
 }
-
-<ItemGroup>
-  <FrameworkReference Include="Microsoft.AspNetCore.App" />
-</ItemGroup>

@@ -10,17 +10,22 @@ namespace TurnitoAPI.Services
         private readonly AppDbContext _context;
         public companyService(AppDbContext context) { this._context = context; }
         
-        public async Task<List<Company>> GetAllCompanies(int userId)
+        public async Task<List<Get_Company_Dto>> GetAllCompanies(int userId)
         {
             var user = await _context.Usuarios.FindAsync(userId);
             if (user == null || user.isAdmin != true) 
             {
                 return null;
             }
-            return await _context.Empresas.ToListAsync();
+            var companies = await _context.Empresas.Select(c => new Get_Company_Dto
+            {
+                Id = c.Id,
+                Name = c.Name
+            }).ToListAsync();
+            return companies;
         }
 
-        public async Task<Company> GetCompanyById(int userId, int id)
+        public async Task<Get_Company_Dto> GetCompanyById(int userId, int id)
         {
             var user = await _context.Usuarios.FindAsync(userId);
             var company = await _context.Empresas.FindAsync(id);
@@ -28,12 +33,16 @@ namespace TurnitoAPI.Services
             {
                 return null;
             }
-            return company;
+            return new Get_Company_Dto
+            {
+                Id = company.Id,
+                Name = company.Name
+            };
         }
 
 
         // metele los dtos al dto del get-company y devolvelo cuando termines lo demas.
-        public async Task<Company> CreateCompany(int userId, Create_Company_Dto companyDto)
+        public async Task<Get_Company_Dto> CreateCompany(int userId, Create_Company_Dto companyDto)
         {
             var user = await _context.Usuarios.FindAsync(userId);
             if (user == null)
@@ -51,10 +60,14 @@ namespace TurnitoAPI.Services
             };
             _context.Empresas.Add(company);
             await _context.SaveChangesAsync();
-            return company;
+            return new Get_Company_Dto
+            {
+                Id = company.Id,
+                Name = company.Name
+            };
         }
 
-        public async Task<Company> UpdateCompanyName(int userId, int companyId, Update_Company_Dto  companyDto)
+        public async Task<Get_Company_Dto> UpdateCompanyName(int userId, int companyId, Update_Company_Dto  companyDto)
         {
             var user = await _context.Usuarios.FindAsync(userId);
             if (user == null)
@@ -72,7 +85,12 @@ namespace TurnitoAPI.Services
             }
             company.Name = companyDto.Name;
             await _context.SaveChangesAsync();
-            return company;
+            var companyModified = await _context.Empresas.FindAsync(companyId);
+            return new Get_Company_Dto
+            {
+                Id = companyModified.Id,
+                Name = companyModified.Name
+            };
         }
 
         public async Task<bool> DeleteCompany(int userId, int id)

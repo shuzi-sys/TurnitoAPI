@@ -51,8 +51,14 @@ namespace TurnitoAPI.Services
                 }).FirstAsync();
         }
 
-        public async Task<Get_Appointment_Dto> CreateAppointment(Create_Appointment_Dto appointment)
+        public async Task<Get_Appointment_Dto> CreateAppointment(int userId, Create_Appointment_Dto appointment)
         {
+            var user = await _context.Usuarios.FindAsync(userId);
+            if (user == null) { throw new Exception("Invalid user"); }
+            if (user.AvailableAppointments <= 0) 
+            {
+                throw new Exception("You've hit the limit of appointments");
+            }
             var newAppointment = new Appointment
             {
                 DateStart = appointment.DateStart,
@@ -104,18 +110,32 @@ namespace TurnitoAPI.Services
             {
                 existingAppointment.DateStart = appointment.DateStart.Value;
             }
+            // add check for "newer than datestart"
             if (appointment.DateEnd != null)
             {
                 existingAppointment.DateEnd = appointment.DateEnd.Value;
             }
             if (appointment.ServiceId != null)
             {
-                existingAppointment.ServiceId = appointment.ServiceId.Value;
+                var service = await _context.Servicios.FindAsync(appointment.ServiceId);
+                if (service != null && service.Company.UserId == userId)
+                {
+                    existingAppointment.ServiceId = appointment.ServiceId.Value;
+                }
+                else { throw new Exception("You dont own such service"); }
             }
             if (appointment.ProviderId != null)
             {
-                existingAppointment.ProviderId = appointment.ProviderId.Value;
-            }
+                var provider = await _context.Prestadores.FindAsync(appointment.ProviderId);
+                if (provider != null && provider.Company.UserId == userId)
+                {
+                    existingAppointment.ProviderId = appointment.ProviderId.Value;
+                }
+                else
+                {
+                    throw new Exception("You dont own such provider");
+                }
+                }
 
             await _context.SaveChangesAsync();
             var updatedAppointment = await _context.Turnos.Where(a => a.Id == existingAppointment.Id)

@@ -12,11 +12,9 @@ namespace TurnitoAPI.Controllers
     [Authorize]
     public class AppointmentController : ControllerBase
     {
-        private readonly AppDbContext _context;
         private readonly IappointmentService _appointmentService;
-        public AppointmentController(AppDbContext context, IappointmentService appointmentService)
+        public AppointmentController( IappointmentService appointmentService)
         {
-            _context = context;
             _appointmentService = appointmentService;
         }
 

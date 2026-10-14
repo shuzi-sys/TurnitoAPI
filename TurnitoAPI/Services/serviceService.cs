@@ -23,6 +23,10 @@ namespace TurnitoAPI.Services
             {
                 throw new Exception("User has no available services left");
             }
+            var company = await _context.Empresas.FindAsync(dto.CompanyID);
+            if (company == null || company.UserId != userId) {
+                throw new Exception("Not an owner of such company");
+            }
             var service = new Service
             {
                 Name = dto.Name,

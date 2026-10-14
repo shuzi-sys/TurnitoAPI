@@ -193,7 +193,7 @@ namespace TurnitoAPI.Services
             {
                 throw new Exception("User not found.");
             }
-            var provider = await _context.Prestadores.Where(p => p.Id == id && user.Company.Any(c => c.Id == p.CompanyId))
+            var provider = await _context.Prestadores.Where(p => p.Id == id && p.Company.UserId == userId)
                 .Select(p => new Get_Provider_Dto
                 {
                     Id = p.Id,
@@ -222,7 +222,7 @@ namespace TurnitoAPI.Services
             {
                 throw new Exception("User not found.");
             }
-            var provider = await _context.Prestadores.Where(p => p.Id == id && user.Company.Any(c => c.Id == p.CompanyId)).FirstOrDefaultAsync();
+            var provider = await _context.Prestadores.Where(p => p.Id == id && p.Company.UserId== userId).FirstOrDefaultAsync();
             if (provider == null)
             {
                 throw new Exception("Provider not found.");

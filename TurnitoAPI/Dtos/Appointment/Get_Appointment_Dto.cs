@@ -12,7 +12,7 @@
         public string ClientName { get; set; }
         public string ClientNumber { get; set; }
         public DateTime DateStart { get; set; }
-        public DateTime DateEnd { get; set; }
+        public DateTime? DateEnd { get; set; }
 
     }
 }

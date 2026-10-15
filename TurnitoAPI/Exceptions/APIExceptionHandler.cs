@@ -13,6 +13,7 @@ namespace TurnitoAPI.Exceptions
                 NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
                 ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
                 BusinessRuleException => (StatusCodes.Status400BadRequest, "Invalid request"),
+                ForbiddenException => (StatusCodes.Status403Forbidden, "Forbidden"),
                 _ => (StatusCodes.Status500InternalServerError, "Internal Error")
             };
 

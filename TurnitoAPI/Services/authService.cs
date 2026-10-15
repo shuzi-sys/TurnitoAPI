@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using TurnitoAPI.Dtos.User;
 using TurnitoAPI.Models;
+using TurnitoAPI.Exceptions;
 using BCrypt.Net;
 using TurnitoAPI.Services.Interfaces;
 
@@ -39,13 +40,14 @@ namespace TurnitoAPI.Services
             };
 
             _context.Usuarios.Add(user);
+            // race conditions
             try
             {
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateException)
             {
-                throw new Exception("Username or email taken");
+                throw new ConflictException("Username or email already in use");
             }
             // Create and return authentication response
             return await _token.CreateToken(user);
@@ -54,16 +56,8 @@ namespace TurnitoAPI.Services
         public async Task<Auth_Response_Dto> LoginAsync(Login_User_Dto dto)
         {
             var user = _context.Usuarios.FirstOrDefault(u => u.Username == dto.Username);
-            if (user == null)
-            {
-                throw new Exception("User not found");
-            }
-
-            if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.Pwhash))
-            {
-                throw new Exception("Invalid password");
-            }
-
+            var pw = BCrypt.Net.BCrypt.Verify(dto.Password, user.Pwhash);
+            if (user == null || !pw) { throw new ConflictException("Wrong username/password"); }
             return await _token.CreateToken(user);
         }
     }

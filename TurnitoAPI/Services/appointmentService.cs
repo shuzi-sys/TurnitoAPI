@@ -3,6 +3,7 @@ using TurnitoAPI.Data;
 using TurnitoAPI.Models;
 using TurnitoAPI.Dtos.Appointment;
 using TurnitoAPI.Services.Interfaces;
+using TurnitoAPI.Exceptions;
 namespace TurnitoAPI.Services
 {
     public class appointmentService : IappointmentService
@@ -12,8 +13,16 @@ namespace TurnitoAPI.Services
 
         public async Task<ICollection<Get_Appointment_Dto>> GetAllAppointmentsForCompany(int userId, int companyId)
         {
-            var Appointments = await _context.Turnos
-                .Where(a=> a.CompanyId == companyId && a.Company.UserId == userId)
+            var ownsCompany = await _context.Empresas
+                .AnyAsync(c => c.Id == companyId && c.UserId == userId);
+
+            if (!ownsCompany)
+            { return null; }
+
+            return await _context.Turnos
+                .AsNoTracking()
+                .Where(a => a.CompanyId == companyId)
+                .OrderBy(a => a.DateStart)
                 .Select(a => new Get_Appointment_Dto
                 {
                     Id = a.Id,
@@ -29,12 +38,13 @@ namespace TurnitoAPI.Services
                     ClientNumber = a.ClientNumber
                 })
                 .ToListAsync();
-            return Appointments;
         }
 
         public async Task<Get_Appointment_Dto> GetAppointmentById(int userId, int id)
         {
-            return await _context.Turnos.Where(t => t.Id == id && t.Company.UserId == userId)
+            var appointment = await _context.Turnos
+                .AsNoTracking()
+                .Where(t => t.Id == id && t.Company.UserId == userId)
                 .Select(a => new Get_Appointment_Dto
                 {
                     Id = a.Id,
@@ -48,29 +58,89 @@ namespace TurnitoAPI.Services
                     ProviderName = a.Provider.Name,
                     ClientName = a.ClientName,
                     ClientNumber = a.ClientNumber
-                }).FirstAsync();
+                })
+                .FirstOrDefaultAsync();
+
+            return appointment ?? throw new NotFoundException("Appointment not found.");
         }
 
-        public async Task<Get_Appointment_Dto> CreateAppointment(int userId, Create_Appointment_Dto appointment)
+        public async Task<Get_Appointment_Dto> CreateAppointment(int userId, Create_Appointment_Dto dto)
         {
-            var user = await _context.Usuarios.FindAsync(userId);
-            if (user == null) { throw new Exception("Invalid user"); }
-            if (user.AvailableAppointments <= 0) 
-            {
-                throw new Exception("You've hit the limit of appointments");
-            }
+            // 1. check for ownership
+            var ownsCompany = await _context.Empresas
+                .AnyAsync(c => c.Id == dto.CompanyId && c.UserId == userId);
+            if (!ownsCompany)
+                throw new NotFoundException("Company not found");
+
+            // 2. check if company offers such service
+            var service = await _context.Servicios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == dto.ServiceId && s.CompanyID == dto.CompanyId)
+                ?? throw new NotFoundException("Service not found.");
+
+            // 3. check if provider is from such company and offers such service
+            var providerOk = await _context.Prestadores.AnyAsync(p =>
+                p.Id == dto.ProviderId &&
+                p.CompanyId == dto.CompanyId &&
+                p.Services.Any(s => s.Id == dto.ServiceId));
+            if (!providerOk)
+                throw new BusinessRuleException("Specified provider does not exist, or does not provide such service.");
+
+            // 4. fix timestamp for npgsql 
+            var start = dto.DateStart.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(dto.DateStart, DateTimeKind.Utc)
+                : dto.DateStart.ToUniversalTime();
+
+            if (start <= DateTime.UtcNow)
+                throw new BusinessRuleException("Appointment date must be future.");
+
+            var end = start.AddMinutes(service.DurationMinutes);
+
+            // 5. checking if it overlaps with another appointment
+            var overlaps = await _context.Turnos.AnyAsync(a =>
+                a.ProviderId == dto.ProviderId &&
+                a.DateStart < end &&
+                a.DateEnd > start);
+            if (overlaps)
+                throw new ConflictException("Provider already has an appointment at such date/time.");
+
+            // 6. attomic insertion
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            var updated = await _context.Usuarios
+                .Where(u => u.Id == userId && u.AvailableAppointments > 0)
+                .ExecuteUpdateAsync(s => s.SetProperty(
+                    u => u.AvailableAppointments, u => u.AvailableAppointments - 1));
+            if (updated == 0)
+                throw new BusinessRuleException("No appointments available.");
+
             var newAppointment = new Appointment
             {
-                DateStart = appointment.DateStart,
-                CompanyId = appointment.CompanyId,
-                ServiceId = appointment.ServiceId,
-                ProviderId = appointment.ProviderId,
-                ClientName = appointment.ClientName,
-                ClientNumber = appointment.ClientNumber
+                DateStart = start,
+                DateEnd = end,
+                CompanyId = dto.CompanyId,
+                ServiceId = dto.ServiceId,
+                ProviderId = dto.ProviderId,
+                ClientName = dto.ClientName.Trim(),
+                ClientNumber = dto.ClientNumber.Trim()
             };
             _context.Turnos.Add(newAppointment);
-            await _context.SaveChangesAsync();
-            var createdAppointment = await _context.Turnos.Where(a => a.Id == newAppointment.Id)
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23P01" })
+            {
+                // race: another request took that datetime before you
+                throw new ConflictException("Provider already has an appointment at such date/time.");
+            }
+
+            await tx.CommitAsync();
+
+            return await _context.Turnos
+                .AsNoTracking()
+                .Where(a => a.Id == newAppointment.Id)
                 .Select(a => new Get_Appointment_Dto
                 {
                     Id = a.Id,
@@ -79,17 +149,13 @@ namespace TurnitoAPI.Services
                     CompanyId = a.CompanyId,
                     ServiceId = a.ServiceId,
                     ProviderId = a.ProviderId,
-
                     CompanyName = a.Company.Name,
                     ServiceName = a.Service.Name,
                     ProviderName = a.Provider.Name,
-
                     ClientName = a.ClientName,
                     ClientNumber = a.ClientNumber
-                }).FirstAsync();
-
-
-            return createdAppointment;
+                })
+                .FirstAsync();
         }
 
         // this is supossed to be accessed by the company [aka userId], not the person creating the appointment
@@ -97,61 +163,68 @@ namespace TurnitoAPI.Services
          * 1 - Mark as completed (common)
          * 2 - Edit appointment details (which SHOULD notify the client with it's contact number)
          */
-        public async Task<Get_Appointment_Dto> UpdateAppointment(int userId, int id, Update_Appointment_Dto appointment)
+        public async Task<Get_Appointment_Dto> UpdateAppointment(int userId, int id, Update_Appointment_Dto dto)
         {
+            var appointment = await _context.Turnos
+                .FirstOrDefaultAsync(a => a.Id == id && a.Company.UserId == userId)
+                ?? throw new NotFoundException("Appointment not found.");
 
-            var existingAppointment = await _context.Turnos
-                .FirstOrDefaultAsync(a=>a.Id == id
-                                     &&a.Company.UserId == userId);
-            if (existingAppointment == null) {
-                return null;
-            }
-            if (appointment.DateStart != null)
-            {
-                existingAppointment.DateStart = appointment.DateStart.Value;
-            }
-            // add check for "newer than datestart"
-            if (appointment.DateEnd != null)
-            {
-                existingAppointment.DateEnd = appointment.DateEnd.Value;
-            }
-            if (appointment.ServiceId != null)
-            {
-                var serviceBelongsToCompany  = await _context.Servicios.AnyAsync(s =>
-                s.Id == appointment.ServiceId.Value && 
-                s.CompanyID == existingAppointment.CompanyId);
-                if (!serviceBelongsToCompany)
-                {
-                    throw new Exception("Service is not owned by such company.");
-                }
-                existingAppointment.ServiceId = appointment.ServiceId.Value;
-            }
-            if (appointment.ProviderId != null)
-            {
-                var providerBelongsToCompany = await _context.Prestadores.AnyAsync(p =>
-                    p.Id == appointment.ProviderId.Value &&
-                    p.CompanyId == existingAppointment.CompanyId);
+            var finalServiceId = dto.ServiceId ?? appointment.ServiceId;
+            var finalProviderId = dto.ProviderId ?? appointment.ProviderId;
 
-                if (!providerBelongsToCompany)
-                {
-                    throw new Exception("Provider doesnt belong to such company.");
-                }
-                existingAppointment.ProviderId = appointment.ProviderId.Value;
-            }
 
-            var finalServiceId = appointment.ServiceId ?? existingAppointment.ServiceId;
-            var finalProviderId = appointment.ProviderId ?? existingAppointment.ProviderId;
+            var service = await _context.Servicios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == finalServiceId && s.CompanyID == appointment.CompanyId)
+                ?? throw new BusinessRuleException("Company does not offer such service.");
 
-            var providerOffersService = await _context.Prestadores.AnyAsync(p =>
+            var providerOk = await _context.Prestadores.AnyAsync(p =>
                 p.Id == finalProviderId &&
+                p.CompanyId == appointment.CompanyId &&
                 p.Services.Any(s => s.Id == finalServiceId));
+            if (!providerOk)
+                throw new BusinessRuleException("Specified provider does not exist or does not provide such service");
 
-            if (!providerOffersService)
+            // Fecha en UTC
+            var start = appointment.DateStart;
+            if (dto.DateStart != null)
             {
-                throw new Exception("The selected provider doesnt offer such service");
+                start = dto.DateStart.Value.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(dto.DateStart.Value, DateTimeKind.Utc)
+                    : dto.DateStart.Value.ToUniversalTime();
+
+                if (start <= DateTime.UtcNow)
+                    throw new BusinessRuleException("Appointment date must be future.");
             }
-            await _context.SaveChangesAsync();
-            var updatedAppointment = await _context.Turnos.Where(a => a.Id == existingAppointment.Id)
+
+            var end = start.AddMinutes(service.DurationMinutes);
+
+            // Solapamiento, excluyendo este mismo turno
+            var overlaps = await _context.Turnos.AnyAsync(a =>
+                a.Id != id &&
+                a.ProviderId == finalProviderId &&
+                a.DateStart < end &&
+                a.DateEnd > start);
+            if (overlaps)
+                throw new ConflictException("Provider already has an appointment at such date/time.");
+
+            appointment.DateStart = start;
+            appointment.DateEnd = end;
+            appointment.ServiceId = finalServiceId;
+            appointment.ProviderId = finalProviderId;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23P01" })
+            {
+                throw new ConflictException("Provider already has an appointment at such date/time.");
+            }
+
+            return await _context.Turnos
+                .AsNoTracking()
+                .Where(a => a.Id == id)
                 .Select(a => new Get_Appointment_Dto
                 {
                     Id = a.Id,
@@ -165,20 +238,26 @@ namespace TurnitoAPI.Services
                     ProviderName = a.Provider.Name,
                     ClientName = a.ClientName,
                     ClientNumber = a.ClientNumber
-                }).FirstAsync();
-            return updatedAppointment;
-                
+                })
+                .FirstAsync();
         }
-        public async Task<bool> DeleteAppointment(int userId, int id)
+        public async Task DeleteAppointment(int userId, int id)
         {
-            var appointment = await _context.Turnos.FirstOrDefaultAsync(a => a.Id == id && a.Company.UserId == userId);
-            if (appointment == null)
-            {
-                return false;
-            }
+            var appointment = await _context.Turnos
+                .FirstOrDefaultAsync(a => a.Id == id && a.Company.UserId == userId)
+                ?? throw new NotFoundException("Appointment not found.");
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
             _context.Turnos.Remove(appointment);
             await _context.SaveChangesAsync();
-            return true;
+
+            await _context.Usuarios
+                .Where(u => u.Id == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(
+                    u => u.AvailableAppointments, u => u.AvailableAppointments + 1));
+
+            await tx.CommitAsync();
         }
     }
 }

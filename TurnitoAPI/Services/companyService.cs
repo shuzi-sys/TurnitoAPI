@@ -1,7 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TurnitoAPI.Data;
-using TurnitoAPI.Models;
 using TurnitoAPI.Dtos.Company;
+using TurnitoAPI.Exceptions;
+using TurnitoAPI.Models;
 using TurnitoAPI.Services.Interfaces;
 namespace TurnitoAPI.Services
 {
@@ -12,106 +13,97 @@ namespace TurnitoAPI.Services
         
         public async Task<List<Get_Company_Dto>> GetAllCompanies(int userId)
         {
-            var user = await _context.Usuarios.FindAsync(userId);
-            if (user == null || user.isAdmin != true) 
-            {
-                return null;
-            }
-            var companies = await _context.Empresas.Select(c => new Get_Company_Dto
-            {
-                Id = c.Id,
-                Name = c.Name
-            }).ToListAsync();
-            return companies;
+            
+            var isAdmin = await _context.Usuarios.AnyAsync(u => u.Id == userId && u.isAdmin);
+            if (!isAdmin)
+                throw new ForbiddenException("You dont have permission for this.");
+
+            return await _context.Empresas
+                .AsNoTracking()
+                .OrderBy(c => c.Id)
+                .Select(c => new Get_Company_Dto { Id = c.Id, Name = c.Name })
+                .ToListAsync();
         }
 
         public async Task<Get_Company_Dto> GetCompanyById(int userId, int id)
         {
-            var user = await _context.Usuarios.FindAsync(userId);
-            var company = await _context.Empresas.FindAsync(id);
-            if (company == null || company.UserId != userId)
-            {
-                return null;
-            }
-            return new Get_Company_Dto
-            {
-                Id = company.Id,
-                Name = company.Name
-            };
+            return await _context.Empresas
+                .AsNoTracking()
+                .Where(c => c.Id == id && c.UserId == userId)
+                .Select(c => new Get_Company_Dto { Id = c.Id, Name = c.Name })
+                .FirstOrDefaultAsync()
+                ?? throw new NotFoundException("Company not found.");
         }
 
 
         // metele los dtos al dto del get-company y devolvelo cuando termines lo demas.
         public async Task<Get_Company_Dto> CreateCompany(int userId, Create_Company_Dto companyDto)
         {
-            var user = await _context.Usuarios.FindAsync(userId);
-            if (user == null)
-            {
-                return null;
-            }
-            if (user.AvailableCompanies <= 0)
-            {
-                return null;
-            }
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            // Chequeo + descuento atómico (si el usuario no existe, también da 0)
+            var updated = await _context.Usuarios
+                .Where(u => u.Id == userId && u.AvailableCompanies > 0)
+                .ExecuteUpdateAsync(s => s.SetProperty(
+                    u => u.AvailableCompanies, u => u.AvailableCompanies - 1));
+            if (updated == 0)
+                throw new BusinessRuleException("No companies available.");
+
             var company = new Company
             {
                 UserId = userId,
-                Name = companyDto.name
+                Name = companyDto.name.Trim()
             };
             _context.Empresas.Add(company);
             await _context.SaveChangesAsync();
-            return new Get_Company_Dto
-            {
-                Id = company.Id,
-                Name = company.Name
-            };
+            await tx.CommitAsync();
+
+            return new Get_Company_Dto { Id = company.Id, Name = company.Name };
         }
 
         public async Task<Get_Company_Dto> UpdateCompanyName(int userId, int companyId, Update_Company_Dto  companyDto)
         {
-            var user = await _context.Usuarios.FindAsync(userId);
-            if (user == null)
-            {
-                return null;
-            }
-            var company = await _context.Empresas.FindAsync(companyId);
-            if (company == null)
-            {
-                return null;
-            }
-            if (company.UserId != userId)
-            {
-                return null;
-            }
-            company.Name = companyDto.Name;
+            var company = await _context.Empresas
+                .FirstOrDefaultAsync(c => c.Id == companyId && c.UserId == userId)
+                ?? throw new NotFoundException("Company not found.");
+
+            company.Name = companyDto.Name.Trim();
             await _context.SaveChangesAsync();
-            var companyModified = await _context.Empresas.FindAsync(companyId);
-            return new Get_Company_Dto
-            {
-                Id = companyModified.Id,
-                Name = companyModified.Name
-            };
+
+            return new Get_Company_Dto { Id = company.Id, Name = company.Name };
         }
 
-        public async Task<bool> DeleteCompany(int userId, int id)
+        public async Task DeleteCompany(int userId, int id)
         {
-            var user = await _context.Usuarios.FindAsync(userId);
-            if (user == null)
-            {
-                return false;
-            }
-            var company = await _context.Empresas.FindAsync(id);
-            if (company == null)
-            {
-                return false;
-            }
-            if (company.UserId != userId)
-            {
-                return false;
-            }
-            _context.Empresas.Remove(company);
-            await _context.SaveChangesAsync();
-            return true;
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            // Cuento lo que se va a borrar en cascada para devolver los cupos
+            var counts = await _context.Empresas
+                .AsNoTracking()
+                .Where(c => c.Id == id && c.UserId == userId)
+                .Select(c => new
+                {
+                    Services = c.Services.Count,
+                    Providers = c.Providers.Count,
+                    Appointments = c.Appointments.Count
+                })
+                .FirstOrDefaultAsync()
+                ?? throw new NotFoundException("Empresa no encontrada.");
+
+            // La cascada la hace la base (los FK están en Cascade)
+            await _context.Empresas
+                .Where(c => c.Id == id && c.UserId == userId)
+                .ExecuteDeleteAsync();
+
+            await _context.Usuarios
+                .Where(u => u.Id == userId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(u => u.AvailableCompanies, u => u.AvailableCompanies + 1)
+                    .SetProperty(u => u.AvailableServices, u => u.AvailableServices + counts.Services)
+                    .SetProperty(u => u.AvailableProviders, u => u.AvailableProviders + counts.Providers)
+                    .SetProperty(u => u.AvailableAppointments, u => u.AvailableAppointments + counts.Appointments));
+
+            await tx.CommitAsync();
         }
 
     }

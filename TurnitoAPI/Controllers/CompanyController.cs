@@ -25,17 +25,22 @@ namespace TurnitoAPI.Controllers
             var companies = await _companyService.GetAllCompanies(userId);
             return Ok(companies);
         }
-        // proteger a due;o
+        
         [Authorize]
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetCompanyById(int id)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var company = await _companyService.GetCompanyById(userId, id);
-            if (company == null)
-            {
-                return NotFound();
-            }
+            return Ok(company);
+        }
+
+        [Authorize]
+        [HttpGet("{id:int")]
+        public async Task<IActionResult> GetCompanySummaryById(int id) 
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var company = await _companyService.GetCompanySummaryById(userId, id);
             return Ok(company);
         }
 
@@ -53,7 +58,7 @@ namespace TurnitoAPI.Controllers
         }
 
         [Authorize]
-        [HttpPatch("{id}")]
+        [HttpPatch("{id:int}")]
         public async Task<IActionResult> UpdateCompany(int id, Update_Company_Dto companyDto)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -66,15 +71,11 @@ namespace TurnitoAPI.Controllers
         }
 
         [Authorize]
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteCompany(int id)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var result = await _companyService.DeleteCompany(userId, id);
-            if (!result)
-            {
-                return NotFound();
-            }
+            await _companyService.DeleteCompany(userId, id);
             return NoContent();
         }
 

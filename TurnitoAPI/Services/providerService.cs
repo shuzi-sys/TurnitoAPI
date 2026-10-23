@@ -1,9 +1,11 @@
-﻿using TurnitoAPI.Data;
-using TurnitoAPI.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using TurnitoAPI.Data;
 using TurnitoAPI.Dtos.Provider;
 using TurnitoAPI.Dtos.Service;
+using TurnitoAPI.Exceptions;
+using TurnitoAPI.Models;
 using TurnitoAPI.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 namespace TurnitoAPI.Services
 {
     public class providerService : IproviderService
@@ -14,28 +16,33 @@ namespace TurnitoAPI.Services
             _context = context;
         }
 
-        public async Task<Get_Provider_Dto> CreateProvider(int userId,Create_Provider_Dto dto)
+        public async Task<Get_Provider_Dto> CreateProvider(int userId, Create_Provider_Dto dto)
         {
-            var user = await _context.Usuarios.Include(u => u.Company).FirstOrDefaultAsync(u => u.Id == userId);
-            if (user == null)
-            {
-                throw new Exception("User not found.");
-            }
-            if (user.Company == null || !user.Company.Any(c => c.Id == dto.CompanyId))
+            var ownsCompany = await _context.Empresas
+                .AnyAsync(c => c.Id == dto.CompanyId && c.UserId == userId);
+            if (!ownsCompany)
             {
                 throw new Exception("User does not belong to the specified company.");
             }
-            if (user.AvailableProviders <= 0)
-            {
-                throw new Exception("User has no available providers left.");
-            }
-            var serviceIds = dto.ServicesID.Distinct().ToList();
-            var services = await _context.Servicios.Where(s => serviceIds.Contains(s.Id) && s.CompanyID == dto.CompanyId)
-                .ToListAsync();
 
+            var serviceIds = (dto.ServicesID ?? new List<int>()).Distinct().ToList();
+            var services = await _context.Servicios
+                .Where(s => serviceIds.Contains(s.Id) && s.CompanyID == dto.CompanyId)
+                .ToListAsync();
             if (services.Count != serviceIds.Count)
             {
                 throw new Exception("One or more services do not belong to the specified company.");
+            }
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            // evita la race de cuota
+            var updated = await _context.Usuarios
+                .Where(u => u.Id == userId && u.AvailableProviders > 0)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.AvailableProviders, u => u.AvailableProviders - 1));
+            if (updated == 0)
+            {
+                throw new Exception("User has no available providers left.");
             }
 
             var newProvider = new Provider
@@ -47,49 +54,48 @@ namespace TurnitoAPI.Services
             };
             _context.Prestadores.Add(newProvider);
             await _context.SaveChangesAsync();
-            return await _context.Prestadores.Where(p => p.Id == newProvider.Id)
-                .Where(p => p.Id == newProvider.Id)
-                .Select(p => new Get_Provider_Dto
+            await tx.CommitAsync();
+
+            return new Get_Provider_Dto
+            {
+                Id = newProvider.Id,
+                Name = newProvider.Name,
+                CompanyId = newProvider.CompanyId,
+                PhoneNumber = newProvider.PhoneNumber,
+                Services = services.Select(s => new Get_Service_Dto
                 {
-                    Id = p.Id,
-                    Name = p.Name,
-                    CompanyId = p.CompanyId,
-                    PhoneNumber = p.PhoneNumber,
-                    Services = p.Services.Select(s => new Get_Service_Dto
-                    {
-                        Id = s.Id,
-                        Name = s.Name,
-                        DurationMinutes = s.DurationMinutes,
-                        CompanyID = s.CompanyID
-                    }).ToList()
-                }).FirstAsync();
+                    Id = s.Id,
+                    Name = s.Name,
+                    DurationMinutes = s.DurationMinutes,
+                    CompanyID = s.CompanyID
+                }).ToList()
+            };
         }
 
         public async Task<Get_Provider_Dto> UpdateProvider(int userId, int id, Update_Provider_Dto dto)
         {
-            var user = await _context.Usuarios.Include(u => u.Company).FirstOrDefaultAsync(u => u.Id == userId);
-            var provider = await _context.Prestadores.FirstOrDefaultAsync(p => p.Id == id && p.Company.UserId == userId);
-            if (provider == null)
-            {
-                throw new Exception("Provider not found.");
-            }
+            var provider = await _context.Prestadores
+                .Include(p => p.Services)
+                .FirstOrDefaultAsync(p => p.Id == id && p.Company.UserId == userId);
+            if (provider == null) return null;
 
-            if (dto.Name != null)
-            {
-                provider.Name = dto.Name;
-            }
-            if (dto.PhoneNumber != null)
-            {
-                provider.PhoneNumber = dto.PhoneNumber;
-            }
+            if (!string.IsNullOrWhiteSpace(dto.Name)) provider.Name = dto.Name.Trim();
+            if (dto.PhoneNumber != null) provider.PhoneNumber = dto.PhoneNumber;
 
             await _context.SaveChangesAsync();
             return new Get_Provider_Dto
             {
                 Id = provider.Id,
                 Name = provider.Name,
-                PhoneNumber = provider.PhoneNumber,
                 CompanyId = provider.CompanyId,
+                PhoneNumber = provider.PhoneNumber,
+                Services = provider.Services.Select(s => new Get_Service_Dto
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    DurationMinutes = s.DurationMinutes,
+                    CompanyID = s.CompanyID
+                }).ToList()
             };
         }
 
@@ -217,19 +223,18 @@ namespace TurnitoAPI.Services
 
         public async Task<bool> DeleteProvider(int userId, int id)
         {
-            var user = await _context.Usuarios.Include(u => u.Company).FirstOrDefaultAsync(u => u.Id == userId);
-            if (user == null || user.Company == null)
-            {
-                throw new Exception("User not found.");
-            }
-            var provider = await _context.Prestadores.Where(p => p.Id == id && p.Company.UserId== userId).FirstOrDefaultAsync();
-            if (provider == null)
-            {
-                throw new Exception("Provider not found.");
-            }
+            await using var tx = await _context.Database.BeginTransactionAsync();
 
-            _context.Prestadores.Remove(provider);
-            await _context.SaveChangesAsync();
+            var deleted = await _context.Prestadores
+                .Where(p => p.Id == id && p.Company.UserId == userId)
+                .ExecuteDeleteAsync();
+            if (deleted == 0) return false;
+
+            await _context.Usuarios
+                .Where(u => u.Id == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.AvailableProviders, u => u.AvailableProviders + 1));
+
+            await tx.CommitAsync();
             return true;
         }
 

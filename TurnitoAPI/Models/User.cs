@@ -18,6 +18,6 @@ namespace TurnitoAPI.Models
         public int AvailableServices { get; set; } = 0;
         public int AvailableAppointments { get; set; } = 0;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public ICollection<Company>? Company { get; set; } = new List<Company>(); 
+        public ICollection<Company> Company { get; set; } = new List<Company>(); 
     }
 }

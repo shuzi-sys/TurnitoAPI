@@ -13,35 +13,44 @@ namespace TurnitoAPI.Services
             _context = context;
         }
 
-        public async Task<Get_Service_Dto> CreateServiceAsync(int userId, Create_Service_Dto dto) {
-            var user = await _context.Usuarios.FindAsync(userId);
-            if (user == null)
+        public async Task<Get_Service_Dto> CreateServiceAsync(int userId, Create_Service_Dto dto)
+        {
+            var companyName = await _context.Empresas
+                .Where(c => c.Id == dto.CompanyID && c.UserId == userId)
+                .Select(c => c.Name)
+                .FirstOrDefaultAsync();
+            if (companyName == null)
             {
-                throw new Exception("User not found");
+                throw new Exception("Not an owner of such company");
             }
-            if (user.AvailableServices <= 0)
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            var updated = await _context.Usuarios
+                .Where(u => u.Id == userId && u.AvailableServices > 0)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.AvailableServices, u => u.AvailableServices - 1));
+            if (updated == 0)
             {
                 throw new Exception("User has no available services left");
             }
-            var company = await _context.Empresas.FindAsync(dto.CompanyID);
-            if (company == null || company.UserId != userId) {
-                throw new Exception("Not an owner of such company");
-            }
+
             var service = new Service
             {
-                Name = dto.Name,
+                Name = dto.Name.Trim(),
                 DurationMinutes = dto.DurationMinutes,
                 CompanyID = dto.CompanyID
             };
             _context.Servicios.Add(service);
-            user.AvailableServices--;
             await _context.SaveChangesAsync();
+            await tx.CommitAsync();
+
             return new Get_Service_Dto
             {
                 Id = service.Id,
                 Name = service.Name,
                 DurationMinutes = service.DurationMinutes,
-                CompanyID = service.CompanyID
+                CompanyID = service.CompanyID,
+                CompanyName = companyName
             };
         }
 
@@ -69,17 +78,18 @@ namespace TurnitoAPI.Services
 
         public async Task<bool> DeleteServiceById(int userId, int serviceId)
         {
-            var service = await _context.Servicios
-                .FirstOrDefaultAsync(s=> s.Id == serviceId
-                                    && s.Company.UserId == userId);
-            if (service == null)
-            {
-                return false;
-            }
-            _context.Servicios.Remove(service);
-            var user = await _context.Usuarios.FindAsync(userId);
-            user!.AvailableServices++; // <- i bypass the boolean because it's guaranteed to exist by service query
-            await _context.SaveChangesAsync();
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            var deleted = await _context.Servicios
+                .Where(s => s.Id == serviceId && s.Company.UserId == userId)
+                .ExecuteDeleteAsync();
+            if (deleted == 0) return false;
+
+            await _context.Usuarios
+                .Where(u => u.Id == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.AvailableServices, u => u.AvailableServices + 1));
+
+            await tx.CommitAsync();
             return true;
         }
     }

@@ -10,10 +10,10 @@ namespace TurnitoAPI.Services
     {
         private readonly AppDbContext _context;
         public companyService(AppDbContext context) { this._context = context; }
-        
+
         public async Task<List<Get_Company_Dto>> GetAllCompanies(int userId)
         {
-            
+
             var isAdmin = await _context.Usuarios.AnyAsync(u => u.Id == userId && u.isAdmin);
             if (!isAdmin)
                 throw new ForbiddenException("You dont have permission for this.");
@@ -35,6 +35,36 @@ namespace TurnitoAPI.Services
                 ?? throw new NotFoundException("Company not found.");
         }
 
+        public async Task<ICollection<Get_Company_Dto>> GetUserCompanies(int userId)
+        {
+            return await _context.Empresas.Where(c => c.UserId == userId)
+                .Select(c => new Get_Company_Dto { Id = c.Id, Name = c.Name })
+                .ToListAsync() ?? throw new NotFoundException("No companies found");
+        }
+
+        public async Task<Get_Company_Summary_Dto> GetCompanySummaryById(int userId, int id)
+        {
+            return await _context.Empresas
+            .AsNoTracking()
+            .Where(c => c.Id == id && c.UserId == userId)
+            .Select(c => new Get_Company_Summary_Dto { Id = c.Id, Name = c.Name, AppointmentsCount = c.Appointments.Count, 
+            ServicesCount = c.Services.Count, ProvidersCount = c.Appointments.Count})
+            .FirstOrDefaultAsync()
+            ?? throw new NotFoundException("Company not found.");
+        }
+
+        public async Task<ICollection<Get_Company_Summary_Dto>> GetUserCompaniesSummary(int userId)
+        {
+            return await _context.Empresas.Where(c => c.UserId == userId)
+                .Select(c => new Get_Company_Summary_Dto {
+                    Id = c.Id,
+                    Name = c.Name,
+                    AppointmentsCount = c.Appointments.Count,
+                    ServicesCount = c.Services.Count,
+                    ProvidersCount = c.Appointments.Count
+                })
+                .ToListAsync() ?? throw new NotFoundException("No companies found");
+        }
 
         // metele los dtos al dto del get-company y devolvelo cuando termines lo demas.
         public async Task<Get_Company_Dto> CreateCompany(int userId, Create_Company_Dto companyDto)
@@ -91,9 +121,11 @@ namespace TurnitoAPI.Services
                 ?? throw new NotFoundException("Empresa no encontrada.");
 
             // La cascada la hace la base (los FK están en Cascade)
-            await _context.Empresas
+            var deleted = await _context.Empresas
                 .Where(c => c.Id == id && c.UserId == userId)
                 .ExecuteDeleteAsync();
+
+            if (deleted == 0) { throw new NotFoundException("Empresa no encontrada."); }
 
             await _context.Usuarios
                 .Where(u => u.Id == userId)

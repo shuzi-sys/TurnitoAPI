@@ -1,12 +1,13 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TurnitoAPI.Dtos.User;
 using TurnitoAPI.Services.Interfaces;
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace TurnitoAPI.Controllers
 {
     [Route("api/auth")]
     [ApiController]
+    [EnableRateLimiting("Auth")]
     public class AuthController : ControllerBase
     {
         private readonly IauthService _authService;

@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 using TurnitoAPI.Data;
 using TurnitoAPI.Dtos.Appointment;
 using TurnitoAPI.Services.Interfaces;
-using System.Security.Claims;
 
 namespace TurnitoAPI.Controllers
 {
@@ -18,6 +19,7 @@ namespace TurnitoAPI.Controllers
             _appointmentService = appointmentService;
         }
 
+        [EnableRateLimiting("read")]
         [HttpGet("company/{id:int}/appointments")]
         public async Task<IActionResult> GetAllAppointmentsForCompany(int id) {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -29,6 +31,7 @@ namespace TurnitoAPI.Controllers
             return Ok(appointments);
         }
 
+        [EnableRateLimiting("read")]
         [HttpGet("appointment/{id:int}")]
         public async Task<IActionResult> GetAppointmentById(int id)
         {
@@ -41,7 +44,7 @@ namespace TurnitoAPI.Controllers
             return Ok(appointment);
         }
 
-        // POST api/<AppointmentController>
+        [EnableRateLimiting("write")]
         [HttpPost("appointment")]
         public async Task<IActionResult> CreateAppointment(Create_Appointment_Dto appointmentDto)
         {
@@ -54,6 +57,7 @@ namespace TurnitoAPI.Controllers
             return Created(string.Empty, appointment);
         }
 
+        [EnableRateLimiting("write")]
         [HttpPatch("appointment/{id:int}")]
         public async Task<IActionResult> UpdateAppointment(int id, Update_Appointment_Dto appointmentDto)
         {
@@ -66,16 +70,12 @@ namespace TurnitoAPI.Controllers
             return Ok(appointment);
         }
 
-        // DELETE api/<AppointmentController>/5
+        [EnableRateLimiting("write")]
         [HttpDelete("appointment/{id}")]
         public async Task<IActionResult> DeleteAppointment(int id)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var result = await _appointmentService.DeleteAppointment(userId, id);
-            if (!result)
-            {
-                return NotFound();
-            }
+            await _appointmentService.DeleteAppointment(userId, id);
             return NoContent();
         }
     }

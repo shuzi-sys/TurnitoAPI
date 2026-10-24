@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using TurnitoAPI.Dtos.Company;
 using TurnitoAPI.Models;
@@ -17,6 +18,7 @@ namespace TurnitoAPI.Controllers
             _companyService = companyService;
         }
         // proteger a adm
+        [EnableRateLimiting("read")]
         [Authorize(Roles="Admin")]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllCompanies()
@@ -25,7 +27,8 @@ namespace TurnitoAPI.Controllers
             var companies = await _companyService.GetAllCompanies(userId);
             return Ok(companies);
         }
-        
+
+        [EnableRateLimiting("read")]
         [Authorize]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetCompanyById(int id)
@@ -35,6 +38,7 @@ namespace TurnitoAPI.Controllers
             return Ok(company);
         }
 
+        [EnableRateLimiting("read")]
         [Authorize]
         [HttpGet("{id:int")]
         public async Task<IActionResult> GetCompanySummaryById(int id) 
@@ -44,6 +48,7 @@ namespace TurnitoAPI.Controllers
             return Ok(company);
         }
 
+        [EnableRateLimiting("write")]
         [Authorize]
         [HttpPost]
         public async Task<IActionResult> CreateCompany(Create_Company_Dto companyDto)
@@ -57,6 +62,7 @@ namespace TurnitoAPI.Controllers
             return Created(string.Empty, company);
         }
 
+        [EnableRateLimiting("write")]
         [Authorize]
         [HttpPatch("{id:int}")]
         public async Task<IActionResult> UpdateCompany(int id, Update_Company_Dto companyDto)
@@ -70,6 +76,7 @@ namespace TurnitoAPI.Controllers
             return Ok(company);
         }
 
+        [EnableRateLimiting("write")]
         [Authorize]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteCompany(int id)

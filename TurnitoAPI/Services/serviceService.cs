@@ -3,6 +3,7 @@ using TurnitoAPI.Data;
 using TurnitoAPI.Models;
 using TurnitoAPI.Dtos.Service;
 using TurnitoAPI.Services.Interfaces;
+using TurnitoAPI.Exceptions;
 namespace TurnitoAPI.Services
 {
     public class serviceService : IserviceService
@@ -21,7 +22,7 @@ namespace TurnitoAPI.Services
                 .FirstOrDefaultAsync();
             if (companyName == null)
             {
-                throw new Exception("Not an owner of such company");
+                throw new ForbiddenException("Not an owner of such company");
             }
 
             await using var tx = await _context.Database.BeginTransactionAsync();
@@ -31,7 +32,7 @@ namespace TurnitoAPI.Services
                 .ExecuteUpdateAsync(s => s.SetProperty(u => u.AvailableServices, u => u.AvailableServices - 1));
             if (updated == 0)
             {
-                throw new Exception("User has no available services left");
+                throw new BusinessRuleException("User has no available services left");
             }
 
             var service = new Service

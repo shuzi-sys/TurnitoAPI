@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using TurnitoAPI.Data;
 using TurnitoAPI.Dtos.Service;
@@ -20,7 +21,7 @@ namespace TurnitoAPI.Controllers
             _serviceService = serviceService;
         }
 
-        // POST api/<ServiceController>
+        [EnableRateLimiting("write")]
         [HttpPost("service")]
         public async Task<IActionResult> CreateService(Create_Service_Dto serviceDto)
         {
@@ -33,6 +34,7 @@ namespace TurnitoAPI.Controllers
             return Created(string.Empty, service);
         }
 
+        [EnableRateLimiting("read")]
         [HttpGet("company/{companyId:int}/service")]
         public async Task<IActionResult> GetServicesByCompanyId(int companyId)
         {
@@ -45,7 +47,7 @@ namespace TurnitoAPI.Controllers
             return Ok(services);
         }
 
-        
+        [EnableRateLimiting("write")]
         [HttpDelete("service/{id:int}")]
         public async Task<IActionResult> DeleteService(int id)
         {

@@ -72,6 +72,7 @@ namespace TurnitoAPI.Controllers
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var providers = await _providerService.GetAllProvidersForCompany(userId, companyId);
+            if (providers == null) return NotFound();
             return Ok(providers);
         }
 

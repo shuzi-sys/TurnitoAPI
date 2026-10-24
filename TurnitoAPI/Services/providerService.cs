@@ -22,7 +22,7 @@ namespace TurnitoAPI.Services
                 .AnyAsync(c => c.Id == dto.CompanyId && c.UserId == userId);
             if (!ownsCompany)
             {
-                throw new Exception("User does not belong to the specified company.");
+                throw new ForbiddenException("User does not belong to the specified company.");
             }
 
             var serviceIds = (dto.ServicesID ?? new List<int>()).Distinct().ToList();
@@ -31,7 +31,7 @@ namespace TurnitoAPI.Services
                 .ToListAsync();
             if (services.Count != serviceIds.Count)
             {
-                throw new Exception("One or more services do not belong to the specified company.");
+                throw new BusinessRuleException("One or more services do not belong to the specified company.");
             }
 
             await using var tx = await _context.Database.BeginTransactionAsync();
@@ -42,7 +42,7 @@ namespace TurnitoAPI.Services
                 .ExecuteUpdateAsync(s => s.SetProperty(u => u.AvailableProviders, u => u.AvailableProviders - 1));
             if (updated == 0)
             {
-                throw new Exception("User has no available providers left.");
+                throw new ConflictException("User has no available providers left.");
             }
 
             var newProvider = new Provider
@@ -171,7 +171,7 @@ namespace TurnitoAPI.Services
             var user = await _context.Usuarios.Include(u => u.Company).FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null || user.Company == null || !user.Company.Any(c => c.Id == companyId))
             {
-                throw new Exception("User does not belong to the specified company.");
+                throw new ForbiddenException("User does not belong to the specified company.");
             }
 
             return await _context.Prestadores
@@ -197,7 +197,7 @@ namespace TurnitoAPI.Services
             var user = await _context.Usuarios.Include(u => u.Company).FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null || user.Company == null)
             {
-                throw new Exception("User not found.");
+                throw new NotFoundException("User not found.");
             }
             var provider = await _context.Prestadores.Where(p => p.Id == id && p.Company.UserId == userId)
                 .Select(p => new Get_Provider_Dto
@@ -216,7 +216,7 @@ namespace TurnitoAPI.Services
                 }).FirstOrDefaultAsync();
             if (provider == null)
             {
-                throw new Exception("Provider not found.");
+                throw new NotFoundException("Provider not found.");
             }
             return provider;
         }

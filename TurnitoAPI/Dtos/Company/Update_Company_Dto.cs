@@ -2,6 +2,6 @@
 {
     public class Update_Company_Dto
     {
-        public string Name { get; set; }
+        public string? Name { get; set; }
     }
 }

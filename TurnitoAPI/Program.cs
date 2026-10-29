@@ -110,8 +110,10 @@ builder.Services.AddScoped<IcompanyService, companyService>();
 builder.Services.AddScoped<IappointmentService, appointmentService>();
 builder.Services.AddScoped<IserviceService, serviceService>();
 builder.Services.AddScoped<IproviderService, providerService>();
+builder.Services.AddScoped<IadminService, adminService>();
 builder.Services.AddScoped<ItokenService, tokenService>();
 builder.Services.AddExceptionHandler<APIExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 

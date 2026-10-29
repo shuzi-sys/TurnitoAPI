@@ -2,6 +2,6 @@
 {
     public class Create_Company_Dto
     {
-        public string name { get; set; }
+        public string Name { get; set; } = null!;
     }
 }

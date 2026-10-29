@@ -1,10 +1,13 @@
-﻿namespace TurnitoAPI.Dtos.User
+﻿using TurnitoAPI.Dtos.Company;
+namespace TurnitoAPI.Dtos.User
 {
-    public class User_Dto
+    public class User_Quotas_Dto
     {
         public int Id { get; set; }
-        public string Username { get; set; } = null!;
-        public string Mail { get; set; } = null!;
+        public int AvailableCompanies { get; set; } = 0;
+        public int AvailableProviders { get; set; } = 0;
+        public int AvailableServices { get; set; } = 0;
+        public int AvailableAppointments { get; set; } = 0;
         public bool isAdmin { get; set; }
     }
 }

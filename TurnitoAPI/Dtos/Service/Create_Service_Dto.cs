@@ -6,8 +6,10 @@ namespace TurnitoAPI.Dtos.Service
     {
         [Required, MaxLength(100)]
         public string Name { get; set; }
-        [Range(1,1440)]
+        [Required, Range(0,1440)]
         public int DurationMinutes { get; set; }
+        [Required, Range(0, 99999999)]
+        public double Price { get; set; }
         public int CompanyID { get; set; }
     }
 }

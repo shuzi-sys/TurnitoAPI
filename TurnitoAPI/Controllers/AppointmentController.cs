@@ -71,7 +71,7 @@ namespace TurnitoAPI.Controllers
         }
 
         [EnableRateLimiting("write")]
-        [HttpDelete("appointment/{id}")]
+        [HttpDelete("appointment/{id:int}")]
         public async Task<IActionResult> DeleteAppointment(int id)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

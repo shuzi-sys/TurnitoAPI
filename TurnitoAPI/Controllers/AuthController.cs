@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace TurnitoAPI.Controllers
 {
-    [Route("api/auth")]
+    [Route("{username:string}")]
     [ApiController]
     [EnableRateLimiting("Auth")]
     public class AuthController : ControllerBase

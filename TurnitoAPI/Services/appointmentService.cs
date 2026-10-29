@@ -64,6 +64,8 @@ namespace TurnitoAPI.Services
             return appointment ?? throw new NotFoundException("Appointment not found.");
         }
 
+
+
         public async Task<Get_Appointment_Dto> CreateAppointment(int userId, Create_Appointment_Dto dto)
         {
             // 1. check for ownership

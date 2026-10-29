@@ -39,6 +39,7 @@ namespace TurnitoAPI.Services
             {
                 Name = dto.Name.Trim(),
                 DurationMinutes = dto.DurationMinutes,
+                Price = dto.Price,
                 CompanyID = dto.CompanyID
             };
             _context.Servicios.Add(service);
@@ -50,6 +51,7 @@ namespace TurnitoAPI.Services
                 Id = service.Id,
                 Name = service.Name,
                 DurationMinutes = service.DurationMinutes,
+                Price = service.Price,
                 CompanyID = service.CompanyID,
                 CompanyName = companyName
             };
@@ -70,6 +72,7 @@ namespace TurnitoAPI.Services
             Id = s.Id,
             Name = s.Name,
             DurationMinutes = s.DurationMinutes,
+            Price = s.Price,
             CompanyID = s.CompanyID,
             CompanyName = s.Company.Name
         })

@@ -34,22 +34,39 @@ namespace TurnitoAPI.Services
                 throw new BusinessRuleException("One or more services do not belong to the specified company.");
             }
 
+            // We first validate the schedules, checking if each block overlaps and checking every day filled in (see the method below)
+            if (dto.ProviderWorkSchedule != null)
+            {
+                ValidateSchedule(dto.ProviderWorkSchedule);
+            }
+            var schedulesList = dto.ProviderWorkSchedule?
+        .SelectMany(kv => kv.Value.Select(w => new ProviderWorkSchedule
+        {
+            DayOfWeek = kv.Key,
+            StartTime = w.StartTime,
+            EndTime = w.EndTime
+        }))
+                .ToList() ?? new List<ProviderWorkSchedule>();
+
+
             await using var tx = await _context.Database.BeginTransactionAsync();
 
-            // evita la race de cuota
+            // avoids quota race > 
             var updated = await _context.Usuarios
                 .Where(u => u.Id == userId && u.AvailableProviders > 0)
                 .ExecuteUpdateAsync(s => s.SetProperty(u => u.AvailableProviders, u => u.AvailableProviders - 1));
             if (updated == 0)
             {
-                throw new ConflictException("User has no available providers left.");
+                throw new BusinessRuleException("User has no available providers left.");
             }
-
+            // 
+            
             var newProvider = new Provider
             {
                 Name = dto.Name,
                 CompanyId = dto.CompanyId,
                 PhoneNumber = dto.PhoneNumber,
+                Schedules = schedulesList,
                 Services = services
             };
             _context.Prestadores.Add(newProvider);
@@ -221,6 +238,19 @@ namespace TurnitoAPI.Services
             return provider;
         }
 
+        public async Task<List<DateTime>> GetAvailableAppointmentsForDay(int userId, int providerId, DateOnly date) 
+        {
+            var user = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null)
+            {
+                throw new NotFoundException("User not found.");
+            }
+
+            var provider = await _context.Prestadores.Where(p => p.Id == providerId && p.Company.UserId == userId)
+                .Select()
+
+        }
+
         public async Task<bool> DeleteProvider(int userId, int id)
         {
             await using var tx = await _context.Database.BeginTransactionAsync();
@@ -237,7 +267,21 @@ namespace TurnitoAPI.Services
             await tx.CommitAsync();
             return true;
         }
+        private static void ValidateSchedule(Dictionary<DayOfWeek, List<WorkTime>> schedule)
+        {
+            foreach (var (day, blocks) in schedule)
+            {
+                if (blocks.Count > 3)
+                    throw new BusinessRuleException($"{day}: máximo 3 bloques por día.");
 
+                if (blocks.Any(b => b.EndTime <= b.StartTime))
+                    throw new BusinessRuleException($"{day}: cada bloque debe terminar después de empezar.");
+
+                var sorted = blocks.OrderBy(b => b.StartTime).ToList();
+                if (sorted.Zip(sorted.Skip(1), (a, b) => b.StartTime < a.EndTime).Any(x => x))
+                    throw new BusinessRuleException($"{day}: los bloques no pueden pisarse.");
+            }
+        }
 
     }
     }

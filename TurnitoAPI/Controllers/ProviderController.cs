@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using TurnitoAPI.Dtos.Provider;
 using TurnitoAPI.Services.Interfaces;
@@ -19,6 +20,7 @@ namespace TurnitoAPI.Controllers
             _providerService = providerService;
         }
 
+        [EnableRateLimiting("write")]
         [HttpPost("providers")]
         public async Task<IActionResult> CreateProvider(Create_Provider_Dto providerDto)
         {
@@ -31,6 +33,7 @@ namespace TurnitoAPI.Controllers
             return Created(string.Empty, provider);
         }
 
+        [EnableRateLimiting("write")]
         [HttpPatch("providers/{id:int}")]
         public async Task<IActionResult> UpdateProvider(int id, Update_Provider_Dto providerDto)
         {
@@ -43,6 +46,7 @@ namespace TurnitoAPI.Controllers
             return Ok(provider);
         }
 
+        [EnableRateLimiting("write")]
         [HttpPost("providers/{providerId:int}/services/")]
         public async Task<IActionResult> AddServiceToProvider(int providerId, Update_Provider_Services_Dto dto)
         {
@@ -55,6 +59,7 @@ namespace TurnitoAPI.Controllers
             return Ok(provider);
         }
 
+        [EnableRateLimiting("write")]
         [HttpDelete("providers/{providerId:int}/services")]
         public async Task<IActionResult> RemoveServiceFromProvider(int providerId, Update_Provider_Services_Dto dto)
         {
@@ -67,6 +72,7 @@ namespace TurnitoAPI.Controllers
             return Ok(provider);
         }
 
+        [EnableRateLimiting("read")]
         [HttpGet("companies/{companyId:int}/providers")]
         public async Task<IActionResult> GetAllProvidersForCompany(int companyId)
         {
@@ -76,6 +82,7 @@ namespace TurnitoAPI.Controllers
             return Ok(providers);
         }
 
+        [EnableRateLimiting("read")]
         [HttpGet("providers/{providerId:int}")]
         public async Task<IActionResult> GetProviderById(int providerId)
         {
@@ -88,6 +95,7 @@ namespace TurnitoAPI.Controllers
             return Ok(provider);
         }
 
+        [EnableRateLimiting("write")]
         [HttpDelete("providers/{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {

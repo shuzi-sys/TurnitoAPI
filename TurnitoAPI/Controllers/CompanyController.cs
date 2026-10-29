@@ -40,7 +40,7 @@ namespace TurnitoAPI.Controllers
 
         [EnableRateLimiting("read")]
         [Authorize]
-        [HttpGet("{id:int")]
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetCompanySummaryById(int id) 
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
